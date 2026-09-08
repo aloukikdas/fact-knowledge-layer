@@ -15,32 +15,18 @@ class Provenance(BaseModel):
 
 class Fact(BaseModel):
     fact_id: Optional[str] = Field(None, description="Unique ID for this fact")
-    entity: str = Field(..., description="Target corporate entity (e.g., Delhivery Limited)")
-    canonical_metric: str = Field(
-        ..., 
-        description="Standardized metric name in snake_case (e.g., revenue_from_operations, active_pin_codes)"
-    )
+    entity: str = Field(default="Delhivery Limited", description="Target corporate entity")
+    canonical_metric: str = Field(..., description="Standardized metric name in snake_case")
     raw_metric: str = Field(..., description="Original metric text as phrased in the PDF")
     value: Union[float, int, str] = Field(..., description="Numerical figure or discrete attribute value")
-    unit: Optional[str] = Field(None, description="Currency or metric unit (e.g., INR Million, Count, %)")
-    period: Optional[str] = Field(
-        None, 
-        description="Temporal scope (e.g., FY21 (12 Months ended Mar 31, 2021), 9M ended Dec 31, 2021, FY24)"
-    )
-    scope: Optional[str] = Field(
-        "Consolidated", 
-        description="Scope of reporting: Consolidated, Standalone, or Specific Subsidiary"
-    )
-    accounting_standard: Optional[str] = Field(
-        None, 
-        description="Accounting standard used (e.g., Restated Ind AS, Audited Ind AS)"
-    )
-    context_notes: Optional[str] = Field(
-        None, 
-        description="Footnotes, exclusions, or qualifying context surrounding the number"
-    )
+    unit: Optional[str] = Field(None, description="Currency or metric unit")
+    period: Optional[str] = Field(None, description="Temporal scope")
+    scope: Optional[str] = Field("Consolidated", description="Scope of reporting")
+    accounting_standard: Optional[str] = Field(None, description="Accounting standard used")
+    context_notes: Optional[str] = Field(None, description="Footnotes, exclusions, or qualifying context")
     provenance: Provenance
 
+# This is the class your server was failing to import
 class FactExtractionResponse(BaseModel):
     facts: List[Fact] = Field(default_factory=list, description="List of extracted grounded facts")
 
@@ -51,3 +37,5 @@ class CrossDocumentRelation(BaseModel):
     relation: RelationshipType
     explanation: str = Field(..., description="Detailed analytical justification for this classification")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score of classification")
+
+ReconciliationResult = CrossDocumentRelation

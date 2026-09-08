@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniFact AI | Document Reconciliation Engine</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap 5.3 & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg-body: #F4F7F9;
+            --bg-card: #FFFFFF;
+            --text-main: #0F172A;
+            --text-muted: #64748B;
+            --brand-primary: #4F46E5;
+            --brand-secondary: #06B6D4;
+            
+            --c-corrob: #10B981;
+            --bg-corrob: #D1FAE5;
+            
+            --c-reconc: #F59E0B;
+            --bg-reconc: #FEF3C7;
+            
+            --c-contra: #EF4444;
+            --bg-contra: #FEE2E2;
+            
+            --c-edge: #8B5CF6;
+            --bg-edge: #EDE9FE;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .navbar-custom {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #E2E8F0;
+            padding: 1rem 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
+        }
+
+        .brand-wrapper {
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .brand-logo-icon {
+            font-size: 1.65rem;
+            background: linear-gradient(135deg, #4338CA 0%, #2563EB 50%, #06B6D4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-flex;
+            align-items: center;
+            filter: drop-shadow(0 2px 5px rgba(37, 99, 235, 0.25));
+        }
+
+        .brand-title-gradient {
+            background: linear-gradient(135deg, #3730A3 0%, #2563EB 40%, #0284C7 75%, #06B6D4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+            font-size: 1.55rem;
+            letter-spacing: -0.03em;
+        }
+
+        .card-custom {
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid #E2E8F0;
+            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.07);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+        }
+
+        .filter-pill {
+            background: #FFFFFF;
+            border: 1px solid #CBD5E1;
+            color: var(--text-muted);
+            border-radius: 9999px;
+            padding: 0.5rem 1.2rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-pill:hover {
+            background: #F8FAFC;
+            color: var(--text-main);
+            border-color: #94A3B8;
+        }
+        .filter-pill.active {
+            background: var(--brand-primary);
+            color: white;
+            border-color: var(--brand-primary);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+        }
+
+        .badge-status {
+            padding: 0.35rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+        .status-CORROBORATED { background: var(--bg-corrob); color: var(--c-corrob); }
+        .status-RECONCILED { background: var(--bg-reconc); color: var(--c-reconc); }
+        .status-CONTRADICTION { background: var(--bg-contra); color: var(--c-contra); }
+        .status-EDGE_CASE { background: var(--bg-edge); color: var(--c-edge); }
+
+        .border-left-CORROBORATED { border-left: 5px solid var(--c-corrob) !important; }
+        .border-left-RECONCILED { border-left: 5px solid var(--c-reconc) !important; }
+        .border-left-CONTRADICTION { border-left: 5px solid var(--c-contra) !important; }
+        .border-left-EDGE_CASE { border-left: 5px solid var(--c-edge) !important; }
+
+        .evidence-box {
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 1.25rem;
+            height: 100%;
+        }
+        .evidence-quote {
+            border-left: 4px solid var(--brand-secondary);
+            padding: 0.75rem 1rem;
+            background: #FFFFFF;
+            font-size: 0.88rem;
+            color: #334155;
+            border-radius: 0 8px 8px 0;
+            font-style: italic;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+
+        .sticky-chart-card {
+            position: sticky;
+            top: 90px;
+            align-self: flex-start;
+            max-height: calc(100vh - 110px);
+            overflow-y: auto;
+        }
+        .fade-in { animation: fadeIn 0.35s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-custom sticky-top">
+        <div class="container-fluid max-w-7xl">
+            <div class="d-flex align-items-center gap-3">
+                <a href="/" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    <i class="bi bi-arrow-left me-1"></i> New Audit
+                </a>
+                <a href="/" class="brand-wrapper">
+                    <i class="bi bi-intersect brand-logo-icon"></i>
+                    <span class="brand-title-gradient">OmniFact AI</span>
+                </a>
+                <span class="badge bg-indigo-subtle text-primary border px-2.5 py-1 rounded-pill fw-semibold small">Audit Terminal</span>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-light border fw-semibold btn-sm px-3 rounded-pill shadow-sm" onclick="seedBenchmark()">
+                    <i class="bi bi-database-fill-down text-warning me-1"></i> Demo Benchmark
+                </button>
+                <button class="btn btn-primary btn-sm px-3 rounded-pill fw-semibold" style="background: var(--brand-primary); border: none;" data-bs-toggle="modal" data-bs-target="#ingestModal">
+                    <i class="bi bi-cloud-arrow-up-fill me-1"></i> Ingest New Filings
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container py-4">
+        
+        <!-- Top Stats Row -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card-custom p-3 h-100">
+                    <div class="text-muted fw-bold text-uppercase mb-1" style="font-size: 0.72rem;">Knowledge Nodes</div>
+                    <div class="stat-number text-dark" id="stat-facts">0</div>
+                    <div class="small fw-semibold text-primary mt-2"><i class="bi bi-file-earmark-pdf me-1"></i> <span id="stat-docs">0</span> Filings Active</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card-custom p-3 h-100" style="border-bottom: 4px solid var(--c-corrob);">
+                    <div class="text-muted fw-bold text-uppercase mb-1" style="font-size: 0.72rem;">Corroborated</div>
+                    <div class="stat-number" id="stat-corrob" style="color: var(--c-corrob);">0</div>
+                    <div class="small text-muted mt-2 fw-medium">Verifiable Consensus</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card-custom p-3 h-100" style="border-bottom: 4px solid var(--c-reconc);">
+                    <div class="text-muted fw-bold text-uppercase mb-1" style="font-size: 0.72rem;">Context Reconciled</div>
+                    <div class="stat-number" id="stat-reconc" style="color: var(--c-reconc);">0</div>
+                    <div class="small text-muted mt-2 fw-medium">Resolved via Scope/Period</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card-custom p-3 h-100" style="border-bottom: 4px solid var(--c-contra);">
+                    <div class="text-muted fw-bold text-uppercase mb-1" style="font-size: 0.72rem;">Contradictions</div>
+                    <div class="stat-number" id="stat-contra" style="color: var(--c-contra);">0</div>
+                    <div class="small text-muted mt-2 fw-medium">Direct Conflicts Detected</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Left Column: Compact Sticky Chart -->
+            <div class="col-lg-4">
+                <div class="card-custom p-4 sticky-chart-card">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold text-dark mb-0">Graph Integrity Breakdown</h6>
+                        <span class="badge bg-light text-primary border" id="chart-total-badge">0 Pairs</span>
+                    </div>
+                    
+                    <div style="height: 210px; position: relative;" class="my-2">
+                        <canvas id="statsChart"></canvas>
+                    </div>
+
+                    <div class="pt-3 border-top mt-2 small">
+                        <div class="d-flex justify-content-between align-items-center py-1">
+                            <span><i class="bi bi-circle-fill me-2" style="color: var(--c-corrob); font-size: 0.65rem;"></i>Corroborated</span>
+                            <span class="fw-bold" id="mini-corrob">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center py-1">
+                            <span><i class="bi bi-circle-fill me-2" style="color: var(--c-reconc); font-size: 0.65rem;"></i>Reconciled (Context)</span>
+                            <span class="fw-bold" id="mini-reconc">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center py-1">
+                            <span><i class="bi bi-circle-fill me-2" style="color: var(--c-contra); font-size: 0.65rem;"></i>Contradictions</span>
+                            <span class="fw-bold text-danger" id="mini-contra">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center py-1">
+                            <span><i class="bi bi-circle-fill me-2" style="color: var(--c-edge); font-size: 0.65rem;"></i>Edge Cases</span>
+                            <span class="fw-bold" id="mini-edge">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Filter & Fact List -->
+            <div class="col-lg-8">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                    <div class="d-flex flex-wrap gap-2" id="filter-container">
+                        <button class="filter-pill active" onclick="setFilter('ALL', this)">All Insights</button>
+                        <button class="filter-pill" onclick="setFilter('CORROBORATED', this)">Corroborations</button>
+                        <button class="filter-pill" onclick="setFilter('RECONCILED', this)">Context Shifts</button>
+                        <button class="filter-pill" onclick="setFilter('CONTRADICTION', this)">Contradictions</button>
+                        <button class="filter-pill" onclick="setFilter('EDGE_CASE', this)">Edge Cases</button>
+                    </div>
+                    <span class="small fw-semibold text-muted" id="record-count-text">0 Records</span>
+                </div>
+
+                <!-- Facts Stream -->
+                <div id="relations-container">
+                    <div class="text-center py-5 card-custom">
+                        <div class="spinner-border text-primary mb-3" role="status"></div>
+                        <h5 class="fw-bold text-dark">Accessing Audit Graph...</h5>
+                        <p class="text-muted small mb-0">Loading cross-document facts</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Interactive Inspector Modal -->
+    <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-bottom px-4 py-3 bg-light rounded-top-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <span id="modal-status-badge" class="badge-status">STATUS</span>
+                        <h4 class="modal-title fw-bold mb-0 text-dark" id="modal-metric-title">Metric Title</h4>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4 bg-white">
+                    
+                    <div class="alert alert-primary bg-opacity-10 border-0 mb-4 rounded-3 p-3">
+                        <div class="d-flex align-items-center gap-2 mb-1 text-primary small text-uppercase fw-bold">
+                            <i class="bi bi-robot fs-5"></i> AI Forensic Synthesis
+                        </div>
+                        <p class="mb-0 text-dark fw-medium" id="modal-explanation"></p>
+                    </div>
+
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="evidence-box shadow-sm">
+                                <div class="d-flex justify-content-between mb-3">
+                                    <span class="badge bg-white text-dark border shadow-sm text-truncate" style="max-width: 65%;" id="modal-doc-a">Doc A</span>
+                                    <span class="badge bg-primary text-white shadow-sm" id="modal-page-a">Pg X</span>
+                                </div>
+                                <h2 class="fw-bold mb-1 text-dark" id="modal-val-a">Value A</h2>
+                                <div class="text-muted small mb-4 fw-medium" id="modal-period-a"><i class="bi bi-calendar3 me-1"></i> Period A</div>
+                                
+                                <div class="small fw-bold text-primary text-uppercase mb-2" style="font-size: 0.7rem;">Extracted Ground Truth</div>
+                                <div class="evidence-quote" id="modal-quote-a">Quote A</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="evidence-box shadow-sm">
+                                <div class="d-flex justify-content-between mb-3">
+                                    <span class="badge bg-white text-dark border shadow-sm text-truncate" style="max-width: 65%;" id="modal-doc-b">Doc B</span>
+                                    <span class="badge bg-primary text-white shadow-sm" id="modal-page-b">Pg Y</span>
+                                </div>
+                                <h2 class="fw-bold mb-1 text-dark" id="modal-val-b">Value B</h2>
+                                <div class="text-muted small mb-4 fw-medium" id="modal-period-b"><i class="bi bi-calendar3 me-1"></i> Period B</div>
+                                
+                                <div class="small fw-bold text-primary text-uppercase mb-2" style="font-size: 0.7rem;">Extracted Ground Truth</div>
+                                <div class="evidence-quote" id="modal-quote-b">Quote B</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Incremental Ingestion Modal -->
+    <div class="modal fade" id="ingestModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-bottom px-4 py-3 bg-light rounded-top-4">
+                    <h5 class="modal-title fw-bold">Ingest Additional Filing</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="incremental-form" onsubmit="handleIncrementalUpload(event)">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Select PDF Filing</label>
+                            <input class="form-control" type="file" id="modal-file-input" accept=".pdf" required>
+                            <div class="form-text small mt-2">The full filing will be scanned and cross-audited against your active workspace.</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 py-2 rounded-pill fw-bold" style="background: var(--brand-primary); border:none;" id="modal-submit-btn">
+                            Audit &amp; Cross-Reference
+                        </button>
+                    </form>
+                    <div id="modal-progress" class="mt-4 text-center d-none">
+                        <div class="spinner-border text-primary mb-2"></div>
+                        <div class="fw-semibold text-dark">Cross-auditing against active workspace...</div>
+                        <div class="small text-muted">Parsing footnotes and running reconciliation</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentFilter = 'ALL';
+        let allReconciliations = [];
+        let chartInstance = null;
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                
+                document.getElementById('stat-facts').innerText = data.total_facts || 0;
+                document.getElementById('stat-docs').innerText = data.total_documents || 0;
+                document.getElementById('stat-corrob').innerText = data.corroborated || 0;
+                document.getElementById('stat-reconc').innerText = data.reconciled || 0;
+                document.getElementById('stat-contra').innerText = data.contradiction || 0;
+
+                document.getElementById('mini-corrob').innerText = data.corroborated || 0;
+                document.getElementById('mini-reconc').innerText = data.reconciled || 0;
+                document.getElementById('mini-contra').innerText = data.contradiction || 0;
+                document.getElementById('mini-edge').innerText = data.edge_case || 0;
+
+                const totalEdges = (data.corroborated || 0) + (data.reconciled || 0) + (data.contradiction || 0) + (data.edge_case || 0);
+                document.getElementById('chart-total-badge').innerText = `${totalEdges} Pairs`;
+
+                updateChart(data);
+            } catch (err) { console.error("Stats err:", err); }
+        }
+
+        function updateChart(data) {
+            const ctx = document.getElementById('statsChart').getContext('2d');
+            const total = (data.corroborated || 0) + (data.reconciled || 0) + (data.contradiction || 0) + (data.edge_case || 0);
+
+            const chartData = total === 0 ? [1] : [
+                data.corroborated || 0,
+                data.reconciled || 0,
+                data.contradiction || 0,
+                data.edge_case || 0
+            ];
+            const chartColors = total === 0 ? ['#E2E8F0'] : ['#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: total === 0 ? ['Awaiting Filings'] : ['Corroborated', 'Reconciled', 'Contradictions', 'Edge Cases'],
+                    datasets: [{
+                        data: chartData,
+                        backgroundColor: chartColors,
+                        borderWidth: 0,
+                        hoverOffset: total === 0 ? 0 : 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '72%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: total > 0,
+                            backgroundColor: '#0F172A',
+                            padding: 10,
+                            cornerRadius: 8
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadReconciliations() {
+            try {
+                const url = currentFilter === 'ALL' ? '/api/reconciliations' : `/api/reconciliations?type=${currentFilter}`;
+                const res = await fetch(url);
+                allReconciliations = await res.json();
+                renderCards(allReconciliations);
+            } catch (err) { console.error("Reconciliation err:", err); }
+        }
+
+        function renderCards(records) {
+            const container = document.getElementById('relations-container');
+            document.getElementById('record-count-text').innerText = `${records.length} Records Found`;
+
+            if (records.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-5 card-custom">
+                        <i class="bi bi-inboxes text-muted fs-1 mb-3 d-block"></i>
+                        <h5 class="fw-bold text-dark">No Cross-Filing Pairs Found</h5>
+                        <p class="text-muted small mb-0">Ingest additional filings to compare or click "Demo Benchmark".</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = records.map((r, idx) => `
+                <div class="card-custom p-4 mb-3 fade-in border-left-${r.relation_type}" style="cursor:pointer;" onclick="openDetailModal(${idx})">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="badge-status status-${r.relation_type}">${r.relation_type.replace('_', ' ')}</span>
+                        <span class="badge bg-light text-dark border fw-bold"><i class="bi bi-shield-check text-primary me-1"></i> ${(r.confidence * 100).toFixed(0)}% Match</span>
+                    </div>
+                    <h5 class="fw-bold mb-2 text-dark">${formatMetric(r.metric)}</h5>
+                    <p class="text-muted small mb-3 lh-base fw-medium">${r.explanation}</p>
+                    
+                    <div class="row g-2 pt-2 border-top bg-light bg-opacity-50 rounded-3 p-2 mx-0">
+                        <div class="col-md-6 border-end">
+                            <div class="d-flex gap-2 mb-1">
+                                <span class="badge bg-white border text-dark small text-truncate" style="max-width:180px" title="${r.doc_a}">${r.doc_a}</span>
+                                <span class="badge bg-white border text-muted small">Pg ${r.page_a}</span>
+                            </div>
+                            <div class="text-dark fs-6 fw-bold">${r.val_a} <span class="text-muted small fw-medium">${r.unit_a || ''}</span></div>
+                        </div>
+                        <div class="col-md-6 ps-md-3">
+                            <div class="d-flex gap-2 mb-1">
+                                <span class="badge bg-white border text-dark small text-truncate" style="max-width:180px" title="${r.doc_b}">${r.doc_b}</span>
+                                <span class="badge bg-white border text-muted small">Pg ${r.page_b}</span>
+                            </div>
+                            <div class="text-dark fs-6 fw-bold">${r.val_b} <span class="text-muted small fw-medium">${r.unit_b || ''}</span></div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function formatMetric(str) {
+            if (!str) return "Metric Node";
+            return str.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        }
+
+        function setFilter(filterType, btnElement) {
+            currentFilter = filterType;
+            document.querySelectorAll('.filter-pill').forEach(el => el.classList.remove('active'));
+            btnElement.classList.add('active');
+            loadReconciliations();
+        }
+
+        function openDetailModal(index) {
+            const r = allReconciliations[index];
+            if (!r) return;
+
+            const badge = document.getElementById('modal-status-badge');
+            badge.className = `badge-status status-${r.relation_type}`;
+            badge.innerText = r.relation_type.replace('_', ' ');
+
+            document.getElementById('modal-metric-title').innerText = formatMetric(r.metric);
+            document.getElementById('modal-explanation').innerText = r.explanation;
+
+            document.getElementById('modal-doc-a').innerText = r.doc_a;
+            document.getElementById('modal-page-a').innerText = `Pg ${r.page_a}`;
+            document.getElementById('modal-val-a').innerText = `${r.val_a} ${r.unit_a || ''}`;
+            document.getElementById('modal-period-a').innerText = `Context: ${r.period_a || 'Permanent Scope'}`;
+            document.getElementById('modal-quote-a').innerText = `"${r.quote_a}"`;
+
+            document.getElementById('modal-doc-b').innerText = r.doc_b;
+            document.getElementById('modal-page-b').innerText = `Pg ${r.page_b}`;
+            document.getElementById('modal-val-b').innerText = `${r.val_b} ${r.unit_b || ''}`;
+            document.getElementById('modal-period-b').innerText = `Context: ${r.period_b || 'Permanent Scope'}`;
+            document.getElementById('modal-quote-b').innerText = `"${r.quote_b}"`;
+
+            new bootstrap.Modal(document.getElementById('detailModal')).show();
+        }
+
+        async function seedBenchmark() {
+            try {
+                const res = await fetch('/api/seed-verified-cases', { method: 'POST' });
+                if (res.ok) {
+                    await loadStats();
+                    await loadReconciliations();
+                }
+            } catch (err) { console.error("Seed error:", err); }
+        }
+        
+        async function handleIncrementalUpload(e) {
+            e.preventDefault();
+            const fileInput = document.getElementById('modal-file-input');
+            if (!fileInput.files[0]) return;
+
+            const formData = new FormData();
+            formData.append('files', fileInput.files[0]);
+
+            const submitBtn = document.getElementById('modal-submit-btn');
+            const progress = document.getElementById('modal-progress');
+            submitBtn.classList.add('d-none');
+            progress.classList.remove('d-none');
+
+            try {
+                const res = await fetch('/api/upload-multi?fresh=false', {
+                    method: 'POST',
+                    body: formData
+                });
+                if (res.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('ingestModal')).hide();
+                    await loadStats();
+                    await loadReconciliations();
+                } else {
+                    const err = await res.json();
+                    alert("Audit error: " + (err.detail || "Processing failed"));
+                }
+            } catch (err) {
+                alert("Audit failed: " + err);
+            } finally {
+                submitBtn.classList.remove('d-none');
+                progress.classList.add('d-none');
+                fileInput.value = '';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadReconciliations();
+        });
+    </script>
+</body>
+</html>

@@ -6,11 +6,13 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
+
 from app.models import Fact, RelationshipType
 from app.pdf_parser import PDFParser
 from app.extractor import FactExtractor
 from app.reconciler import ReconciliationEngine
 from app.storage import StorageEngine
+from app.seed import seed_verified_data
 
 load_dotenv()
 
@@ -27,6 +29,7 @@ os.makedirs("app/templates", exist_ok=True)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
+
 storage = StorageEngine()
 pdf_parser = PDFParser()
 extractor = FactExtractor()
@@ -34,10 +37,14 @@ reconciler = ReconciliationEngine()
 
 @app.get("/", response_class=HTMLResponse)
 async def read_dashboard(request: Request):
-    index_path = "app/templates/index.html"
-    if not os.path.exists(index_path):
-        return HTMLResponse("<h3>Fact Knowledge Layer API is running. Dashboard template pending.</h3>")
-    return templates.TemplateResponse("index.html", {"request": request})
+    index_path = "app/templates/landing.html"
+    if os.path.exists(index_path):
+        return templates.TemplateResponse(request=request, name="landing.html")
+    return templates.TemplateResponse(request=request, name="index.html")
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def get_dashboard(request: Request):
+    return templates.TemplateResponse(request=request, name="dashboard.html")
 
 @app.get("/api/stats")
 async def get_stats():
@@ -54,21 +61,49 @@ async def get_reconciliations(type: Optional[str] = None):
         raise HTTPException(status_code=400, detail=f"Invalid type. Must be one of {valid_types}")
     return storage.get_reconciliations(relation_filter=type)
 
-@app.post("/api/upload")
-async def upload_pdf(file: UploadFile = File(...), max_pages: int = Query(5, description="Pages to process")):
-    if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    file_hash = storage.compute_file_hash(file_path)
-    chunks = pdf_parser.extract_document(file_path, max_pages=max_pages)
-    if not chunks:
-        raise HTTPException(status_code=400, detail="Document could not be parsed or contains no readable text.")
-    is_new = storage.register_document(file.filename, file_hash, total_pages=len(chunks))
-    new_facts = extractor.process_chunks(chunks)
-    if new_facts:
-        storage.insert_facts([{**f.model_dump(), **f.provenance.model_dump()} for f in new_facts])
+# ADDED MISSING MULTI-UPLOAD ENDPOINT
+@app.post("/api/upload-multi")
+async def upload_multiple_pdfs(
+    files: List[UploadFile] = File(...),
+    max_pages: Optional[int] = Query(None, description="Pages to process"),
+    fresh: bool = Query(False, description="Clear prior session if True")
+):
+    if fresh:
+        with storage._get_connection() as conn:
+            conn.execute("DELETE FROM reconciliations")
+            conn.execute("DELETE FROM facts")
+            conn.execute("DELETE FROM documents")
+            conn.commit()
+
+    processed_docs = []
+    new_facts_count = 0
+
+    for file in files:
+        if not file.filename.lower().endswith(".pdf"):
+            continue
+
+        file_path = os.path.join(UPLOAD_DIR, file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        file_hash = storage.compute_file_hash(file_path)
+        
+        # Scan document
+        chunks = pdf_parser.extract_document(file_path, max_pages=150)
+        if not chunks:
+            continue
+
+        storage.register_document(file.filename, file_hash, total_pages=len(chunks))
+        
+        # Extract Facts
+        facts = extractor.process_chunks(chunks)
+        if facts:
+            storage.insert_facts([{**f.model_dump(), **f.provenance.model_dump()} for f in facts])
+            new_facts_count += len(facts)
+        
+        processed_docs.append(file.filename)
+
+    # Reconcile all facts in the knowledge base
     all_facts_dicts = storage.get_all_facts()
     all_facts: List[Fact] = []
     for d in all_facts_dicts:
@@ -103,15 +138,17 @@ async def upload_pdf(file: UploadFile = File(...), max_pages: int = Query(5, des
 
     return {
         "status": "success",
-        "document": file.filename,
-        "is_new_document": is_new,
-        "pages_processed": len(chunks),
-        "facts_extracted": len(new_facts),
-        "reconciliations_updated": len(relations)
+        "documents_processed": processed_docs,
+        "facts_extracted": new_facts_count,
+        "reconciliations_found": len(relations)
     }
 
-from app.seed import seed_verified_data
 @app.post("/api/seed-verified-cases")
 async def seed_verified_cases():
+    with storage._get_connection() as conn:
+        conn.execute("DELETE FROM reconciliations")
+        conn.execute("DELETE FROM facts")
+        conn.execute("DELETE FROM documents")
+        conn.commit()
     seed_verified_data(storage)
-    return {"status": "success", "message": "All 4 required evaluation cases seeded into knowledge base."}
+    return {"status": "success", "message": "All 4 required evaluation cases seeded."}
