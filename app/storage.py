@@ -82,8 +82,14 @@ class StorageEngine:
     def register_document(self, filename: str, file_hash: str, total_pages: int) -> bool:
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT id FROM documents WHERE file_hash = ?", (file_hash,))
-            if cursor.fetchone():
+            cursor.execute("SELECT id FROM documents WHERE file_hash = ? OR filename = ?", (file_hash, filename))
+            row = cursor.fetchone()
+            if row:
+                cursor.execute(
+                    "UPDATE documents SET file_hash = ?, total_pages = ?, processed_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (file_hash, total_pages, row[0])
+                )
+                conn.commit()
                 return False
             cursor.execute(
                 "INSERT INTO documents (filename, file_hash, total_pages) VALUES (?, ?, ?)",
@@ -109,17 +115,35 @@ class StorageEngine:
                 ))
             conn.commit()
 
+    def clear_all(self):
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM reconciliations")
+            cursor.execute("DELETE FROM facts")
+            cursor.execute("DELETE FROM documents")
+            conn.commit()
+
     def insert_reconciliation(self, rec: Dict[str, Any]):
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-            INSERT OR REPLACE INTO reconciliations (
-                id, fact_a_id, fact_b_id, relation_type, explanation, confidence
-            ) VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                rec["id"], rec["fact_a_id"], rec["fact_b_id"],
-                rec["relation_type"], rec["explanation"], rec["confidence"]
-            ))
+                SELECT id FROM reconciliations 
+                WHERE (fact_a_id = ? AND fact_b_id = ?) 
+                   OR (fact_a_id = ? AND fact_b_id = ?)
+            """, (rec["fact_a_id"], rec["fact_b_id"], rec["fact_b_id"], rec["fact_a_id"]))
+            existing = cursor.fetchone()
+
+            if existing:
+                cursor.execute("""
+                    UPDATE reconciliations 
+                    SET relation_type = ?, explanation = ?, confidence = ?, created_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """, (rec["relation_type"], rec["explanation"], rec["confidence"], existing[0]))
+            else:
+                cursor.execute("""
+                    INSERT INTO reconciliations (id, fact_a_id, fact_b_id, relation_type, explanation, confidence)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (rec["id"], rec["fact_a_id"], rec["fact_b_id"], rec["relation_type"], rec["explanation"], rec["confidence"]))
             conn.commit()
 
     def get_all_facts(self, document_name: Optional[str] = None) -> List[Dict[str, Any]]:
