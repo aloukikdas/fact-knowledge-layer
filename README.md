@@ -39,7 +39,7 @@ Navigate to http://127.0.0.1:8000 to access the Audit Console.
 ---
 
 ## 🎥 Video Demo
-Watch the 3-Minute Demo Video Here
+Watch the 3-Minute Demo Video - [Here](https://drive.google.com/file/d/1WM9s9tT9qHvbG27FncE1vAlctPa-lV_P/view?usp=drive_link)
 
 The demo showcases the incremental ingestion of three starter PDFs and the successful extraction and arbitration of the four required evaluation cases.
 
@@ -81,7 +81,7 @@ The demo showcases the incremental ingestion of three starter PDFs and the succe
 * **GitHub:** [https://github.com/aloukikdas](https://github.com/aloukikdas)
 * **LinkedIn:** [https://www.linkedin.com/in/aloukik-das-0a8685304](https://www.linkedin.com/in/aloukik-das-0a8685304)
 * **Project Link:** [https://github.com/aloukikdas/fact-knowledge-layer](https://github.com/aloukikdas/fact-knowledge-layer)
-* **Demo Video:** []()
+* **Demo Video:** [https://drive.google.com/file/d/1WM9s9tT9qHvbG27FncE1vAlctPa-lV_P/view?usp=drive_link](https://drive.google.com/file/d/1WM9s9tT9qHvbG27FncE1vAlctPa-lV_P/view?usp=drive_link)
 
 
 ## 📝 License
