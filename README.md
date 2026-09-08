@@ -1,6 +1,6 @@
 # OmniFact AI: Document Reconciliation Engine
 
-OmniFact AI is a Fact Knowledge Layer built for the Built for the **Superjoin Campus Connect** Assignment. It extracts atomic corporate facts from dense financial PDFs, grounds them in verbatim evidence, and evaluates their relationships across documents to find corroborations, context-based reconciliations, and direct contradictions.
+OmniFact AI is a Fact Knowledge Layer built for the **Superjoin Campus Connect** Assignment. It extracts atomic corporate facts from dense financial PDFs, grounds them in verbatim evidence, and evaluates their relationships across documents to find corroborations, context-based reconciliations, and direct contradictions.
 
 ## Setup and Run Instructions
 
