@@ -10,7 +10,7 @@ OmniFact AI is a Fact Knowledge Layer built for the **Superjoin Campus Connect**
 
 ### 2. Installation
 ```bash
-git clone <your-repo-link>
+git clone <https://github.com/aloukikdas/fact-knowledge-layer.git>
 cd fact-knowledge-layer
 python -m venv venv
 venv\Scripts\activate
